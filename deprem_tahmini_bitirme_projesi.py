@@ -1,8 +1,7 @@
 ################# VERİ SETİ HİKAYESİ ##################################
 
 """
-#işte sütunların veri türleri
-#bu sütunlar ne anlama geliyor?
+Degıskenler ne anlama geliyor?
 #ID: atadığım değer, olay sırasını gösterir.
 #Kod: [YYYYMMDDHHMMSS (YearMonthDayHourDakikaSaniye)] olayının tek kimliği.
 #Tarih: YYYY.AA.GG (Yıl.Ay.Gün) biçiminde belirtilen olay tarihi.
@@ -17,7 +16,7 @@
 #Büyüklük türleri hakkında daha fazla bilgi için lütfen kontrol edin: http://www.koeri.boun.edu.tr/bilgi/buyukluk.htm
 """
 
-
+# gerekli kutuphanelerin import edilmesi
 import numpy as np
 import warnings
 import pandas as pd
@@ -42,26 +41,35 @@ from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 from xgboost import XGBRegressor
 
-
+# bazi gorsel ayarlarin yapilmasi
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
 pd.set_option('display.width', 500)
 
+# bazi hatalari almamak adina....
 # from pandas.core.common import SettingWithCopyWarning
 # from sklearn.exceptions import ConvergenceWarning
 
+# veri setlerının python'na indirilmesi
+df1 = pd.read_csv('olasi_deprem_tahmini/DATA/2000-2007.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
+df2 = pd.read_csv('olasi_deprem_tahmini/DATA/2007-2010.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
+df3 = pd.read_csv('olasi_deprem_tahmini/DATA/2010-2013.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
+df4 = pd.read_csv('olasi_deprem_tahmini/DATA/2013-2015.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
+df5 = pd.read_csv('olasi_deprem_tahmini/DATA/2015-2020.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
 
-df1 = pd.read_csv('Proje/2000-2007.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
-df2 = pd.read_csv('Proje/2007-2010.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
-df3 = pd.read_csv('Proje/2010-2013.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
-df4 = pd.read_csv('Proje/2013-2015.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
-df5 = pd.read_csv('Proje/2015-2020.txt', delimiter = "\t", encoding='mbcs', header=0,names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"])
+# slice ile concat icin listenin olusturulmasi
 frames = [df1,df2,df3,df4,df5]
 data = pd.concat(frames, names=["ID","Code","Date","Time","Latitude","Longtitude","Depth(KM)","xM","MD","ML","Mw","Ms","Mb","Type","Location"] )
+
+#Veri setinin incelenmesi
+
 data.info()
+
+# veri setinin istatistiksel gozlenmesi
 data.describe().T
 
+# bu fonksiyon ile veri setinin on incelemeleri yapilir.
 def check_df(dataframe, head=5):
     print("##################### İnfo #####################")
     print(dataframe.info())
@@ -85,32 +93,38 @@ def check_df(dataframe, head=5):
     print(dataframe.quantile([0, 0.05, 0.50, 0.95, 0.98, 1]).T)
 
 check_df(data)
+
+# veri setinin tarih araligini check ediyorum.
 data["Depth(KM)"].max()
 # Out: 180.8
 data.head()
+# Makine ogrenmesi ve Veri Analizinde ise yaramayacak olan ID degiskeninin Silinmesi (Yeniden tanimlayacagim)
 df_ = data.drop(['ID'], axis=1)
 
 # tüm değişkenleri küçük harflerle temsil etmek.
+# boylelikle kod yazmak daha hizli ve hatasiz olabilecek.
 df_.columns = [col.upper() for col in df_.columns]
 
+# Yeniden ID degiskeninin tanimlanmasi
 df_.insert(loc= 0, column= 'ID', value= range(0, len(data)))
+# ilk 5 satirinin gozlemlenmesi
 df_.head()
+# son 5 satirinin gozlemlenmesi
 df_.tail()
-df_["DEPTH(KM)"].max()
-# Out: 180.8
 """
-                        # Feature Engineer
+                        # Feature Engineer'in icin Not. 
                         # 300 km'den daha az derinliğe sahip depremler 'yakın' olarak kabul edilir.
                         
 bu bilgiyi değişken oalrak kullanamayacağım anlamına geliyor: df_["DEPTH(KM)"].max() # Out: 180.8
 Çünkü hepsi 300 km' den küçük
 """
-
+# 2'den kucuk olan depremlerin adetinin hesaplanmasi icin ön kod denemesi
 df_.shape[0] - df_.loc[df_["XM"] <= 2].shape[0]
 
 len(df_.loc[df_["XM"] <= 2])
 
-
+# ön kod denemesi sonrasi tum buyukluk degiskenlerinde for dongusu olusturarak 2'den kucuk buyukluklerin adetine ulasmak.
+# buyukluklari liste icinde atamak
 magnitud = ["MD", "MS", "MB", "MW", "ML", "XM"]
 
 for col in magnitud:
@@ -119,34 +133,12 @@ for col in magnitud:
 
 
 """
-                            Feature Engineer yapmak
+                            Feature Engineer yapmak icin bir fikir daha.
 # oluşum yılını yeni bir sütun olarak eklemek.
     # df.insert(loc= 3, column= "Year", value= data["Date"].str[0:4], True)
 """
-
-df_.dtypes
-
-
 # http://www.koeri.boun.edu.tr/bilgi/buyukluk.htm
 # bazı notlar:
-
-
-"""
-                        contains kullanımı ile ilgili bir örnek
-
-football_soccer_games = sports_games.loc[df['Name'].str.contains("soccer|football", case=False)]
-
-df[df.loc[df["LOCATION"].isin(marmara)]]
-# marmara_bol= df_["LOCATION"].isin(marmara)
-# df[df['LOCATION'].str.contains('EDIRNE')]
-# ValueError: Cannot mask with non-boolean array containing NA / NaN values hatası almamak ıcın contains('ED', na=False)
-# yapmak lazım na= False
-
-                                        # kaynak:
-# https://towardsdatascience.com/check-for-a-substring-in-a-pandas-dataframe-column-4b949f64852#:~:text=Using%20%E2%80%9Ccontains%E2%80%9D%20to%20Find%20a,substring%20and%20False%20if%20not.
-
-"""
-
 
 # MARMARA Bölgesinin verisetinde seçilmesi
 mr = '"EDİRNE"|"EDIRNE"|"KIRKLARELI"|"KİRKLARELİ"|"KIRKLARELİ"|"KİRKLARELI"|"TEKIRDAG"|"TEKİRDAG"|"TEKİRDAĞ"|"TEKIRDAĞ"|"ISTANBUL"|"İSTANBUL"|"KOCAELI"|"KOCAELİ"|"SAKARYA"|"BILECIK"|"BİLECİK"|"BILECİK"|"BİLECIK"|"YALOVA"|"BURSA"|"BALIKESIR"|"BALİKESİR"|"BALIKESİR"|"ÇANAKKALE"|"CANAKKALE"'
@@ -162,7 +154,7 @@ mr
 marmara = mr
 
 check_df(df_)
-
+# dfm adinda marmara bolgesi veri setinin olusturulmsi
 dfm= df_[df_['LOCATION'].str.contains(marmara,na=False, case= False)]
 dfm.head()
 check_df(dfm)
@@ -174,41 +166,7 @@ dfm.head(20)
 dfm["DEPTH(KM)"].max()
 # Out[218]: 102.0
 
-
-def check_df(dataframe, head=5):
-    print("##################### İnfo #####################")
-    print(dataframe.info())
-
-    print("##################### Shape #####################")
-    print(dataframe.shape)
-
-    print("##################### Types #####################")
-    print(dataframe.dtypes)
-
-    print("##################### Head #####################")
-    print(dataframe.head(head))
-
-    print("##################### Tail #####################")
-    print(dataframe.tail(head))
-
-    print("##################### NA #####################")
-    print(dataframe.isnull().sum().sort_values(ascending=False))
-
-    print("##################### Quantiles #####################")
-    print(dataframe.quantile([0, 0.05, 0.50, 0.95, 0.98, 1]).T)
-
 check_df(dfm)
-
-#
-
-"""
-                                    A nolu açıklama
-# sıfır oalrak girilmiş olan büyüklüklerin birbiriyle ilişkisi
-# dfm.drop(labels= ["MD", "MS", "MB", "MW", "ML", "XM"], inplace= True, axis= 1)
-
-# deprem büyüklüğü sıfır ise değerler ölçülmemiş demektir!
-# deprem büyüklüğü değişkenlerindeki gözlem sayılarındaki sıfır'ların 'ne kadar' olduklarına bakmak lazım.
-"""
 
 # toplam verı setı gözlem sayım
 dfm.shape[0]
@@ -231,46 +189,8 @@ for col in magnitud:
     print(col+"'nin veri içindeki sıfır oranı: {:.3f}".format(oran))
     print("*****************************************************", end= "\n")
 
-# Bu sıfırların yapısal oldugunu verı setı hıkayesınden bılıyoruz. ve A nolu açıklamdan
+# Bu sıfırların yapısal oldugunu verı setı hıkayesınden bılıyoruz.
 # msno kütüphanesi ile görselleştırebılmemız için 0 'lar yerıne NaN koymalıyız.
-
-"""
-                        Bu şekilde string eklemiş olursun. Boşluklar bu şekilde dolmaz.
-                        
-dfm.loc[(dfm["MD"] == 0) , "MD"].head()
-
-dfm.loc[(dfm["MD"] == 0) , "MD"] = ""
-
-dfm.loc[(dfm["MD"] == "") , "MD"].head()
-
-dfm["MD"].isnull().sum()
-# Out[291]: 0
-
-
-for col in magnitud:
-    dfm.loc[(dfm[col] == 0), col] = ""
-    print(dfm.loc[(dfm[col] == "") , col].head())
-    print("************************************", end="\n")
-"""
-
-
-"""
-                Henüz yeterince ham veri üzerinde çalışmadan bu işleme sonra ihtiyacım olabilir.
-# len(dfm) - len(dfm.loc[dfm["MD"] == 0])
-# # Out[118]: 9569
-# len(dfm.loc[dfm["MD"] != 0, :])
-# # Out[118]: 9569
-# df6= dfm.loc[dfm["MD"] != 0, :]
-
-# derinliği sıfır olarak girilen değerler ölçülmemiş olanlardır.
-# veri setinden çıkarıyorum
-
-len(df6.loc[df6["DEPTH(KM)"] == 0])
-
-# df= df6.loc[df6["DEPTH(KM)"] != 0, :]
-"""
-
-dfm.info()
 
 dfm_1= dfm
 magnitud = ["MD", "MS", "MB", "MW", "ML", "XM"]
@@ -279,13 +199,14 @@ magnitud = ["MD", "MS", "MB", "MW", "ML", "XM"]
 dfm_1.replace(0.0, None, inplace=True)
 dfm_1.isnull().sum().sort_values(ascending= False)
 dfm.isnull().sum().sort_values(ascending= False)
-dfm["DEPTH(KM)"].max()
+
 
 # her değişiklik sonrası check etmekte fayda var. Gözden kaçan bir durum var ı ve verı setı setı hakımıyetını
     # canlı tutmak ıcın
 check_df(dfm_1)
 
 # burada yapısal ya da rassallığı gözlemliyoruz. ÖNEMLİ
+# msno kutuphanesinin import edilmesi
 import missingno as msno
 none_deger_iliskisi = msno.matrix(dfm_1), plt.show(block= True)
 msno.bar(dfm_1), plt.show(block= True)
@@ -366,25 +287,6 @@ dfm_1["XM"][9241]
 # Biliyoruz ki artık XM dışında bir Büyüklük değişkenine ihtiyacımız bulunmamakta.
 
 
-"""
-                        Bazı denemeler sonrası kullanmadıgım örnekler
-
-# {(key.upper() if value <3 else key):(value*2 if value <3 else value) for key, value in dictionary.items() }
-
-# students = ["John", "Mark", "Venessa", "Mariam"]
-# 
-# A= []
-# B= []
-# 
-# for index, student in enumerate(students):
-#     if index % 2 == 0:
-#         A.append(student)
-# 
-#     else:
-#         B.append(student)
-# print(A, B)
-"""
-
 check_df(dfm_1)
 ##################### Types #####################
 # ID               int64
@@ -456,9 +358,11 @@ dfm_1.insert(3,"HOUR", dfm_1["TIME"].str[0:2])
 dfm_1.head()
 
 dfm_1["HOUR"].nunique()
+#24
 
 check_df(dfm_1)
 
+# deprem buyuklugununun 2 den kucuk olma durumunun tekrar incelenmesi
 for col in magnitud:
     print(col + "<=2 : ", len(dfm_1.loc[dfm_1[col] <= 2]))
     print(col + " %  : ", (len(dfm_1.loc[dfm_1[col] <= 2])/len(dfm_1) * 100))
@@ -509,21 +413,6 @@ df_new.shape[0]
 # derinlikte değişim olacak mı diye ayrıca sürekli takip etmekteyim verisetim içinde önemli bir değişken şimdilik
 df_new["DEPTH(KM)"].max()
 # Out[109]: 102.0
-
-# df_new.groupby(by= "DATE").agg({"DEPTH(KM)": ["mean", "min", "max"],
-#                             "XM": ["mean", "min", "max"]})
-#
-# df_1 = df_new.groupby(by= "DATE").agg({"DEPTH(KM)": "mean", "XM": "mean"})
-
-# df_1.reset_index(level=0, inplace= True)
-# df_1.shape[0]
-# df_1[0:5]
-
-# df = pd.DataFrame(df_1, columns= ["DATE", "DEPTH(KM)", "XM"])
-# df.head()
-
-# df = create_date_features(df, "DATE")
-
 
 """
                                     # Deprem sınıfları 
@@ -865,10 +754,6 @@ num_summary(df, num_cols, plot= True)
 def target_summary_with_cat(dataframe, target, categorical_col):
     print(dataframe.groupby(categorical_col).agg({target : ["mean","count"]}), end="\n\n\n")
 
-"""
-    print(pd.DataFrame({"TARGET_MEAN": dataframe.groupby(categorical_col)[target].mean()}), end="\n\n\n")
-"""
-
 for col in cat_cols:
     target_summary_with_cat(df, "XM", col)
 
@@ -911,7 +796,7 @@ drop_list
 #  Name: DAY_OF_YEAR, dtype: float64,
 
 #  MONTH         0.972
-#  DAY_OF_YEAR   0.973
+#  DAY_OF_YEAR   0.974
 #  Name: WEEK_OF_YEAR, dtype: float64]
 
 # bu degiskenleri ya silerim ya da feature engineer de kullanirim. Ki feature engineer de kullanmak en iyisi.
@@ -1105,14 +990,6 @@ df["DAY_OF_YEAR_AND_WEEK_OF_YEAR_"] = (53 - df["WEEK_OF_YEAR"]) / (367- df["DAY_
 from statsmodels.stats.proportion import proportions_ztest
 # proportions_ztest testi sunu ders iki degisken arasinda anlamli bir fark yoktur der. p<0.05 ise RED!
 # Ki çıktı değişkenimizde continue veri oldugu için doğrudan göremeyiz!
-"""
-
-test_stat, pvalue = proportions_ztest(count=[df.loc[df["NEW_IS_ALONE"] == "YES", "Survived"].sum(),
-                                             df.loc[df["NEW_IS_ALONE"] == "NO", "Survived"].sum()],
-
-                                      nobs=[df.loc[df["NEW_IS_ALONE"] == "YES", "Survived"].shape[0],
-                                            df.loc[df["NEW_IS_ALONE"] == "NO", "Survived"].shape[0]])
-"""
 
 # birim derinlik başına düşen deprem büyüklüğü
 df["XM_AND_DEPTH(KM)_"] = df["XM"] / df["DEPTH(KM)"]
@@ -1182,7 +1059,7 @@ df = one_hot_encoder(df, ohe_cols, drop_first=True )
 df.head()
 df.shape
 
-# 75 değişkene ulaşıldı! daha da artırılabılınır.
+# 75+1 değişkene ulaşıldı! daha da artırılabılınır.
 
 cat_cols, num_cols, cat_but_car = grab_col_names(df)
 num_cols = [col for col in num_cols if col not in ["ID", "CODE", "DATE", "DATE_TIME"]]
@@ -1339,7 +1216,9 @@ df.dropna(inplace=True)
 # Base Models
 #############################################
 df.head()
+# Hedef degiskenin atanmasi
 y = df["XM"]
+# Girdi Degiskenlerinin atanmasi
 X = df.drop(["XM", "ID", "CODE", "DATE", "DATE_TIME"], axis=1)
 
 
@@ -1374,13 +1253,13 @@ df.head()
 """
 
 
-# RMSE: 749352738.1336 (LR)
+# RMSE: 1885709694.1947 (LR)
 # RMSE: 0.6826 (Ridge)
 # RMSE: 1.0161 (Lasso)
 # RMSE: 1.0161 (ElasticNet)
 # RMSE: 0.889 (KNN)
-# RMSE: 0.4374 (CART)
-# RMSE: 0.3314 (RF)
+# RMSE: 0.4331 (CART)
+# RMSE: 0.3302 (RF)
 # RMSE: 0.2604 (SVR)
 # RMSE: 0.3702 (GBM)
 # RMSE: 0.1837 (XGBoost)
@@ -1404,15 +1283,15 @@ lgbm_best_grid = GridSearchCV(lgbm_model, lgbm_params, cv=5, n_jobs=-1, verbose=
 lgbm_best_grid.best_params_
 # Out[785]:
 # {'Num_leaves': 70,
-#  'colsample_bytree': 1,
+#  'colsample_bytree': 0.7,
 #  'learning_rate': 0.1,
-#  'max_depth': 7,
+#  'max_depth': 10,
 #  'n_estimators': 500}
 lgbm_final = lgbm_model.set_params(**lgbm_best_grid.best_params_, random_state=17).fit(X, y)
 rmse = np.mean(np.sqrt(-cross_val_score(lgbm_final, X, y, cv=10, scoring="neg_mean_squared_error")))
 rmse
-# RMSE: 0.033256220426123084 (LightGBM)
-# Önceki RMSE:  0.039 (LightGBM)
+# RMSE: 0.16386172232668386 (LightGBM)
+# Önceki RMSE:  0.197 (LightGBM)
 
 # model yeni hiperparametreleri ile daha başarılı bir sonuc elde etti
 
@@ -1429,15 +1308,15 @@ lgbm_best_grid2 = GridSearchCV(lgbm_model, lgbm_params2, cv=5, n_jobs=-1, verbos
 lgbm_best_grid2.best_params_
 # Out[793]:
 # {'Num_leaves': 60,
-#  'colsample_bytree': 1,
+#  'colsample_bytree': 0.9,
 #  'learning_rate': 0.18,
-#  'max_depth': 5,
+#  'max_depth': 3,
 #  'n_estimators': 650}
 lgbm_final2 = lgbm_model.set_params(**lgbm_best_grid2.best_params_, random_state=17).fit(X, y)
 rmse = np.mean(np.sqrt(-cross_val_score(lgbm_final2, X, y, cv=10, scoring="neg_mean_squared_error")))
 rmse
-# RMSE: 0.030866860169188416(LightGBM)
-# Önceki RMSE:  0.039 (LightGBM)
+# RMSE: 0.15381460929184793(LightGBM)
+# Önceki RMSE:  0.197 (LightGBM)
 
 ################################################
 # XGBRegressor
@@ -1472,16 +1351,17 @@ rmse
 catboost_model = CatBoostRegressor(random_state=17, verbose=False)
 
 catboost_params = {"iterations": [200, 500 ],
-                   "learning_rate": [0.01, 0.1, None],
-                   "depth": [3, 6, None]
+                   "learning_rate": [0.01, 0.1],
+                   "depth": [3, 6]
                    }
 catboost_best_grid = GridSearchCV(catboost_model, catboost_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
 catboost_best_grid.best_params_
 # Out[178]: {'depth': 6, 'iterations': 500, 'learning_rate': 0.1}
 catboost_final = catboost_model.set_params(**catboost_best_grid.best_params_, random_state=17).fit(X, y)
 rmse = np.mean(np.sqrt(-cross_val_score(catboost_final, X, y, cv=10, scoring="neg_mean_squared_error")))
-# Out:  0.038601259460575285
-# Önceki RMSE: 0.0359 (CatBoost)
+# Out:  0.15827136442770523
+# Önceki RMSE: 0.151 (CatBoost)
+# Defoult RMSE degeri daha iyi!
 
 
 catboost_model = CatBoostRegressor(random_state=17, verbose=False)
@@ -1493,13 +1373,13 @@ catboost_params2 = {"iterations": [500, 550],
 
 catboost_best_grid2 = GridSearchCV(catboost_model, catboost_params2, cv=5, n_jobs=-1, verbose=True).fit(X, y)
 catboost_best_grid2.best_params_
-# Out[192]: {'depth': 5, 'iterations': 550, 'learning_rate': 0.1}
+# Out[107]: {'depth': 7, 'iterations': 550, 'learning_rate': 0.095}
 
 catboost_final2 = catboost_model.set_params(**catboost_best_grid2.best_params_, random_state=17).fit(X, y)
 rmse = np.mean(np.sqrt(-cross_val_score(catboost_final2, X, y, cv=10, scoring="neg_mean_squared_error")))
 rmse
-# Out[770]: 0.0396400947777558
-# Önceki RMSE: 0.0359 (CatBoost)
+# Out[770]: 0.15261851772012042
+# Önceki RMSE: 0.151 (CatBoost)
 
 # modelin random değerleri çok daha verimli o yüzden onu kullanıyorum
 
@@ -1524,44 +1404,5 @@ def plot_importance(model, features, num=len(X), save=False):
 plot_importance(lgbm_final, X)
 plot_importance(catboost_model, X)
 
-"""
-
-               ############################################################################
-                    # Smoothing Methods (Holt-Winters)  TES 'e giden yolun hazırlıgı
-##### df["col"].resample('24H').mean() ######### yardımcı olsun dıye bır örnek!
-df_y  = dfm_1.groupby(by= ["DATE"], group_keys= True).agg({"XM": "mean"}).apply(lambda x: x)
-df_y.head()
-df_y= df_y.reset_index()
-df_date_time = pd.DataFrame({'XM': df_y["XM"].values}, index=df_y["DATE"].values)
-df_date_time.head()
-
-
-ts_decompose(df_y1)
-
-def ts_decompose(y, model="additive", stationary=False):
-    result = seasonal_decompose(y, model=model)
-    fig, axes = plt.subplots(4, 1, sharex=True, sharey=False)
-    fig.set_figheight(10)
-    fig.set_figwidth(15)
-
-    axes[0].set_title("Decomposition for " + model + " model")
-    axes[0].plot(y, 'k', label='Original ' + model)
-    axes[0].legend(loc='upper left')
-
-    axes[1].plot(result.trend, label='Trend')
-    axes[1].legend(loc='upper left')
-
-    axes[2].plot(result.seasonal, 'g', label='Seasonality & Mean: ' + str(round(result.seasonal.mean(), 4)))
-    axes[2].legend(loc='upper left')
-
-    axes[3].plot(result.resid, 'r', label='Residuals & Mean: ' + str(round(result.resid.mean(), 4)))
-    axes[3].legend(loc='upper left')
-    plt.show(block=True)
-
-    if stationary:
-        is_stationary(y)
-
-
-"""
 
 
