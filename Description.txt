@@ -1,1 +1,1 @@
-Marmara Bölgesi Olası Deprem Tahmini İçin Makine Öğrenmesi Algoritmalarının Geliştirlmesi
+Marmara Bölgesi Olası Deprem Tahmini; Makine Öğrenmesi Algoritmalarının Geliştirlmesi
