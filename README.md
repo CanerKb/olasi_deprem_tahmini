@@ -19,3 +19,5 @@ Ayrıca @nilaycicekli 'nin [makalesinden](https://github.com/nilaycicekli/earthq
 - Deprem hangi zamanlarda daha sık tekrar ediyor?
 - Depremin enlem-boylam ilişkisi var mıdır?
 - Eldeki veriler ile deprem tahmininin mümkünlüğü nedir?
+# writer  : Caner KARABULUT
+# contact : [LinkedIn_My_Profil](https://www.linkedin.com/in/caner-karabulut-884737a0/)
